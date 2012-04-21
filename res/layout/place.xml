@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:orientation="vertical" >
+
+    <EditText
+        android:id="@+id/placeView" android:layout_width="fill_parent"
+        android:layout_height="60dip" android:textSize="18sp" 
+        android:inputType="textCapWords" android:hint="@string/add_place_name"/>
+
+    <Button
+        android:id="@+id/recordButton" android:layout_width="fill_parent"
+        android:layout_height="60dip" android:text="@string/record" />
+
+</LinearLayout>

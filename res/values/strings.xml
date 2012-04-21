@@ -3,5 +3,11 @@
 
     <string name="hello">Hello World, PlacesActivity!</string>
     <string name="app_name">CellLocation</string>
+    <string name="new_place">Add new!</string>
+    <string name="add_place_name">Add place name</string>
+    <string name="record">Record</string>
+    <string name="how_to_record">Do you want to keep the previous cells?</string>
+    <string name="record_keep">Keep previous cells</string>
+    <string name="record_restart">Restart list of cells</string>
 
 </resources>
