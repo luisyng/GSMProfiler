@@ -9,6 +9,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
+import es.luisalbert.entities.CellInfo;
 import es.luisalbert.entities.Place;
 
 public class SQLiteInterface {
@@ -32,13 +33,14 @@ public class SQLiteInterface {
 			contentValues.put(PlacesDBHelper.VOLUME, 0);
 			contentValues.put(PlacesDBHelper.VIBRATION, 0);
 
-			// Save the message
+			// Save the place
 			db.insertOrThrow(PlacesDBHelper.PLACES_TABLE, null, contentValues);
-			Cursor lastIdCursor = db.rawQuery("SELECT last_insert_rowid()", null);
-			if(lastIdCursor.moveToNext()) {
+			Cursor lastIdCursor = db.rawQuery("SELECT last_insert_rowid()",
+					null);
+			if (lastIdCursor.moveToNext()) {
 				place.setId(lastIdCursor.getInt(0));
 			}
-			
+
 			Log.i("DATABASE", "Place inserted into db");
 			return place;
 		} catch (Exception e) {
@@ -48,6 +50,61 @@ public class SQLiteInterface {
 			// Always close the dbHelper
 			dbHelper.close();
 		}
+	}
+
+	public static void saveCell(Context context, int idPlace, CellInfo cell) {
+		PlacesDBHelper dbHelper = new PlacesDBHelper(context);
+		try {
+			// Get the database
+			SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+			// Container for the values
+			ContentValues contentValues = new ContentValues();
+
+			// Values into content: cell table
+			contentValues.put(PlacesDBHelper.IDPLACE, idPlace);
+			contentValues.put(PlacesDBHelper.IDCELL, cell.getId());
+			contentValues.put(PlacesDBHelper.LOCATION_AREA, cell.getAreaCode());
+
+			// Save the place
+			db.insertOrThrow(PlacesDBHelper.CELLS_TABLE, null, contentValues);
+
+			Log.i("DATABASE", "Cell inserted into db");
+		} catch (Exception e) {
+			Log.e("DATABASE", "Error in db " + e);
+		} finally {
+			// Always close the dbHelper
+			dbHelper.close();
+		}
+	}
+
+	public static void addCells(Activity activity, Place place) {
+		// Get the helper
+		PlacesDBHelper dbHelper = new PlacesDBHelper(activity);
+		// Clear the list
+		place.getCells().clear();
+
+		try {
+			// Get the database
+			SQLiteDatabase db = dbHelper.getReadableDatabase();
+			Log.d(TAG_LOGGER, "Database obtained");
+
+			Cursor cursor = db.query(PlacesDBHelper.CELLS_TABLE, null, 
+					PlacesDBHelper.IDPLACE + " = " + place.getId(),
+					null, null, null, null);
+
+			activity.startManagingCursor(cursor);
+			Log.d(TAG_LOGGER, "Query for cells executed");
+
+			// Rest from db
+			addCellsFromCursor(place.getCells(), cursor, activity);
+			Log.d(TAG_LOGGER, "Cells added to list: " + place.getCells().size());
+
+		} finally {
+			// Always close the helper
+			dbHelper.close();
+		}
+		Log.i(TAG_LOGGER, place.getCells().size() + " places from db");
 	}
 
 	public static void updatePlace(Context context, Place place) {
@@ -95,7 +152,7 @@ public class SQLiteInterface {
 
 			// Add fake place for creating
 			places.add(new Place(0, activity.getString(R.string.new_place)));
-			
+
 			// Rest from db
 			addPlacesFromCursor(places, cursor, activity);
 			Log.d(TAG_LOGGER, "Places added to list");
@@ -116,6 +173,15 @@ public class SQLiteInterface {
 		}
 	}
 	
+	private static void addCellsFromCursor(List<CellInfo> cells, Cursor cursor,
+			Activity activity) {
+
+		while (cursor.moveToNext()) {
+			// Add the place
+			cells.add(new CellInfo(cursor.getInt(2), cursor.getInt(3)));
+		}
+	}
+
 	public static Place getPlace(Activity activity, int idPlace) {
 		// Get the helper
 		PlacesDBHelper dbHelper = new PlacesDBHelper(activity);
@@ -127,8 +193,8 @@ public class SQLiteInterface {
 
 			// Execute the query
 			Cursor cursor = db.query(PlacesDBHelper.PLACES_TABLE, null,
-					PlacesDBHelper.IDPLACE + " = " + idPlace, null, null,
-					null, null);
+					PlacesDBHelper.IDPLACE + " = " + idPlace, null, null, null,
+					null);
 			activity.startManagingCursor(cursor);
 			Log.d("DATABASE", "Query for place executed");
 

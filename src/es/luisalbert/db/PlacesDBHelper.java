@@ -11,7 +11,7 @@ import android.database.sqlite.SQLiteOpenHelper;
  */
 public class PlacesDBHelper extends SQLiteOpenHelper {
 	private static final String DATABASE_NAME = "places.db";
-	private static final int DATABASE_VERSION = 2;
+	private static final int DATABASE_VERSION = 4;
 
 	// Places table
 	public static final String PLACES_TABLE = "places";
@@ -19,6 +19,12 @@ public class PlacesDBHelper extends SQLiteOpenHelper {
 	public static final String PLACE = "place";
 	public static final String VOLUME = "volume";
 	public static final String VIBRATION = "vibration";
+
+	// Cells table
+	public static final String CELLS_TABLE = "cells";
+	public static final String KEYCELL = "keycell";
+	public static final String IDCELL = "idcell";
+	public static final String LOCATION_AREA = "loc_area";
 
 	/** Create a helper object for the Places database */
 	public PlacesDBHelper(Context context) {
@@ -30,11 +36,15 @@ public class PlacesDBHelper extends SQLiteOpenHelper {
 		db.execSQL("CREATE TABLE " + PLACES_TABLE + " (" + IDPLACE
 				+ " INTEGER PRIMARY KEY, " + PLACE + " TEXT," + VOLUME
 				+ " INTEGER," + VIBRATION + " BOOLEAN);");
+		db.execSQL("CREATE TABLE " + CELLS_TABLE + " (" + KEYCELL
+				+ " INTEGER PRIMARY KEY, " + IDPLACE + " INTEGER," + IDCELL + " INTEGER,"
+				+ LOCATION_AREA	+ " INTEGER);");
 	}
 
 	@Override
 	public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
 		db.execSQL("DROP TABLE IF EXISTS " + PLACES_TABLE);
+		db.execSQL("DROP TABLE IF EXISTS " + CELLS_TABLE);
 		onCreate(db);
 	}
 }

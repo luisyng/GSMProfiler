@@ -5,12 +5,23 @@
     android:orientation="vertical" >
 
     <EditText
-        android:id="@+id/placeView" android:layout_width="fill_parent"
-        android:layout_height="60dip" android:textSize="18sp" 
-        android:inputType="textCapWords" android:hint="@string/add_place_name"/>
+        android:id="@+id/placeView"
+        android:layout_width="fill_parent"
+        android:layout_height="60dip"
+        android:hint="@string/add_place_name"
+        android:inputType="textCapWords"
+        android:textSize="18sp" />
 
     <Button
-        android:id="@+id/recordButton" android:layout_width="fill_parent"
-        android:layout_height="60dip" android:text="@string/record" />
+        android:id="@+id/recordButton"
+        android:layout_width="fill_parent"
+        android:layout_height="60dip"
+        android:text="@string/record" />
+
+    <ListView
+        android:id="@+id/cellsListView"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content" >
+    </ListView>
 
 </LinearLayout>

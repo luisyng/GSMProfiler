@@ -9,5 +9,7 @@
     <string name="how_to_record">Do you want to keep the previous cells?</string>
     <string name="record_keep">Keep previous cells</string>
     <string name="record_restart">Restart list of cells</string>
+    <string name="cellIDLabel">Cell ID:</string>
+    <string name="locationAreaLabel">Location area:</string>
 
 </resources>
