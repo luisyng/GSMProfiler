@@ -13,10 +13,10 @@
         android:textSize="18sp" />
 
     <Button
-        android:id="@+id/recordButton"
+        android:id="@+id/learnButton"
         android:layout_width="fill_parent"
         android:layout_height="60dip"
-        android:text="@string/record" />
+        android:text="@string/learn" />
 
     <ListView
         android:id="@+id/cellsListView"

@@ -1,5 +1,6 @@
 package es.luisalbert.db;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import es.luisalbert.app.R;
@@ -16,12 +17,15 @@ public class SQLiteInterface {
 
 	private static final String TAG_LOGGER = "Database";
 
-	public static final String FOLLOWING = "following";
-	public static final String ALL = "all";
-
-	public static Place savePlace(Context context, Place place) {
-		PlacesDBHelper dbHelper = new PlacesDBHelper(context);
+	public static Place savePlace(Activity activity, Place place) {
+		PlacesDBHelper dbHelper = new PlacesDBHelper(activity);
 		try {
+			// Get number of places to put lowest priority
+			List<Place> places = new ArrayList<Place>();		
+			SQLiteInterface.addPlaces(activity, places);
+			// Priority goes from 0 to SIZE-1. New lowest = size
+			int priority = places.size(); 
+					
 			// Get the database
 			SQLiteDatabase db = dbHelper.getWritableDatabase();
 
@@ -30,6 +34,7 @@ public class SQLiteInterface {
 
 			// Values into content: places table
 			contentValues.put(PlacesDBHelper.PLACE, place.getPlace());
+			contentValues.put(PlacesDBHelper.PRIORITY, priority);
 			contentValues.put(PlacesDBHelper.VOLUME, 0);
 			contentValues.put(PlacesDBHelper.VIBRATION, 0);
 
@@ -41,11 +46,35 @@ public class SQLiteInterface {
 				place.setId(lastIdCursor.getInt(0));
 			}
 
-			Log.i("DATABASE", "Place inserted into db");
+			Log.i(TAG_LOGGER, "Place inserted into db");
 			return place;
 		} catch (Exception e) {
-			Log.e("DATABASE", "Error in db " + e);
+			Log.e(TAG_LOGGER, "Error in db " + e);
 			return null;
+		} finally {
+			// Always close the dbHelper
+			dbHelper.close();
+		}
+	}
+	
+	public static void updatePriorities(Activity activity, List<Place> places) {
+		PlacesDBHelper dbHelper = new PlacesDBHelper(activity);
+		try {				
+			// Get the database
+			SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+			// Container for the values
+			ContentValues contentValues = new ContentValues();
+
+			// Update individually
+			for(int i = 0; i < places.size(); i++) {
+				contentValues.put(PlacesDBHelper.PRIORITY, i);				
+				db.update(PlacesDBHelper.PLACES_TABLE, contentValues,
+						PlacesDBHelper.IDPLACE + "=" + places.get(i).getId(), null);
+			}
+			Log.i(TAG_LOGGER, "Prioirities updated");
+		} catch (Exception e) {
+			Log.e(TAG_LOGGER, "Error in db " + e);
 		} finally {
 			// Always close the dbHelper
 			dbHelper.close();
@@ -65,13 +94,14 @@ public class SQLiteInterface {
 			contentValues.put(PlacesDBHelper.IDPLACE, idPlace);
 			contentValues.put(PlacesDBHelper.IDCELL, cell.getId());
 			contentValues.put(PlacesDBHelper.LOCATION_AREA, cell.getAreaCode());
+			contentValues.put(PlacesDBHelper.TIMESTAMP, cell.getTimestamp());
 
 			// Save the place
 			db.insertOrThrow(PlacesDBHelper.CELLS_TABLE, null, contentValues);
 
-			Log.i("DATABASE", "Cell inserted into db");
+			Log.i(TAG_LOGGER, "Cell inserted into db");
 		} catch (Exception e) {
-			Log.e("DATABASE", "Error in db " + e);
+			Log.e(TAG_LOGGER, "Error in db " + e);
 		} finally {
 			// Always close the dbHelper
 			dbHelper.close();
@@ -107,6 +137,56 @@ public class SQLiteInterface {
 		Log.i(TAG_LOGGER, place.getCells().size() + " places from db");
 	}
 
+	public static void deletePlace(Context context, int idPlace) {
+		PlacesDBHelper dbHelper = new PlacesDBHelper(context);
+		try {
+			// Get the database
+			SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+			// Delete cells
+			db.delete(PlacesDBHelper.PLACES_TABLE, 
+					PlacesDBHelper.IDPLACE + "=?", 
+					new String[] { String.valueOf(idPlace) });
+			Log.i(TAG_LOGGER, "Place deleted");
+		} finally {
+			// Always close the dbHelper
+			dbHelper.close();
+		}
+	}
+	
+	public static void deleteCell(Context context, int idPlace, int idCell) {
+		PlacesDBHelper dbHelper = new PlacesDBHelper(context);
+		try {
+			// Get the database
+			SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+			// Delete cells
+			db.delete(PlacesDBHelper.CELLS_TABLE, 
+					PlacesDBHelper.IDPLACE + "=? AND " + PlacesDBHelper.IDCELL + "=?", 
+					new String[] { String.valueOf(idPlace), String.valueOf(idCell) });
+			Log.i(TAG_LOGGER, "Cell deleted");
+		} finally {
+			// Always close the dbHelper
+			dbHelper.close();
+		}
+	}
+	
+	public static void deleteCells(Context context, Place place) {
+		PlacesDBHelper dbHelper = new PlacesDBHelper(context);
+		try {
+			// Get the database
+			SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+			// Delete cells
+			db.delete(PlacesDBHelper.CELLS_TABLE, 
+					PlacesDBHelper.IDPLACE + "=?", new String[] { String.valueOf(place.getId()) });
+			Log.i(TAG_LOGGER, "Cells deleted");
+		} finally {
+			// Always close the dbHelper
+			dbHelper.close();
+		}
+	}
+	
 	public static void updatePlace(Context context, Place place) {
 		PlacesDBHelper dbHelper = new PlacesDBHelper(context);
 		try {
@@ -125,7 +205,7 @@ public class SQLiteInterface {
 			db.update(PlacesDBHelper.PLACES_TABLE, contentValues,
 					PlacesDBHelper.IDPLACE + "=" + place.getId(), null);
 
-			Log.i("DATABASE", "Place updated");
+			Log.i(TAG_LOGGER, "Place updated");
 		} finally {
 			// Always close the dbHelper
 			dbHelper.close();
@@ -143,7 +223,7 @@ public class SQLiteInterface {
 			SQLiteDatabase db = dbHelper.getReadableDatabase();
 			Log.d(TAG_LOGGER, "Database obtained");
 
-			String orderBy = PlacesDBHelper.IDPLACE;
+			String orderBy = PlacesDBHelper.PRIORITY;
 			Cursor cursor = db.query(PlacesDBHelper.PLACES_TABLE, null, null,
 					null, null, null, orderBy);
 
@@ -178,7 +258,7 @@ public class SQLiteInterface {
 
 		while (cursor.moveToNext()) {
 			// Add the place
-			cells.add(new CellInfo(cursor.getInt(2), cursor.getInt(3)));
+			cells.add(new CellInfo(cursor.getInt(2), cursor.getInt(3), cursor.getString(4)));
 		}
 	}
 
@@ -189,18 +269,18 @@ public class SQLiteInterface {
 		try {
 			// Get the database
 			SQLiteDatabase db = dbHelper.getReadableDatabase();
-			Log.d("DATABASE", "Database obtained");
+			Log.d(TAG_LOGGER, "Database obtained");
 
 			// Execute the query
 			Cursor cursor = db.query(PlacesDBHelper.PLACES_TABLE, null,
 					PlacesDBHelper.IDPLACE + " = " + idPlace, null, null, null,
 					null);
 			activity.startManagingCursor(cursor);
-			Log.d("DATABASE", "Query for place executed");
+			Log.d(TAG_LOGGER, "Query for place executed");
 
 			// Extract the results
 			if (cursor.moveToNext()) {
-				Log.d("DATABASE", "Place returned");
+				Log.d(TAG_LOGGER, "Place returned");
 				return new Place(cursor.getInt(0), cursor.getString(1));
 			}
 		} finally {

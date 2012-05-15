@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <array name="how_to_record">
-        <item>@string/record_keep</item>
-        <item>@string/record_restart</item>
+
+    <array name="how_to_learn">
+        <item>@string/learn_keep</item>
+        <item>@string/learn_restart</item>
     </array>
+    <array name="long_press">
+        <item>@string/delete_place</item>
+        <item>@string/increase_priority</item>
+        <item>@string/decrease_priority</item>
+    </array>
+
 </resources>

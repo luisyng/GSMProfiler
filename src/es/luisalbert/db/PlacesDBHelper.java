@@ -11,20 +11,22 @@ import android.database.sqlite.SQLiteOpenHelper;
  */
 public class PlacesDBHelper extends SQLiteOpenHelper {
 	private static final String DATABASE_NAME = "places.db";
-	private static final int DATABASE_VERSION = 4;
+	private static final int DATABASE_VERSION = 6;
 
 	// Places table
 	public static final String PLACES_TABLE = "places";
 	public static final String IDPLACE = "idplace";
 	public static final String PLACE = "place";
+	public static final String PRIORITY = "priority";
 	public static final String VOLUME = "volume";
 	public static final String VIBRATION = "vibration";
-
+	
 	// Cells table
 	public static final String CELLS_TABLE = "cells";
 	public static final String KEYCELL = "keycell";
 	public static final String IDCELL = "idcell";
 	public static final String LOCATION_AREA = "loc_area";
+	public static final String TIMESTAMP = "tmstp";
 
 	/** Create a helper object for the Places database */
 	public PlacesDBHelper(Context context) {
@@ -34,11 +36,11 @@ public class PlacesDBHelper extends SQLiteOpenHelper {
 	@Override
 	public void onCreate(SQLiteDatabase db) {
 		db.execSQL("CREATE TABLE " + PLACES_TABLE + " (" + IDPLACE
-				+ " INTEGER PRIMARY KEY, " + PLACE + " TEXT," + VOLUME
-				+ " INTEGER," + VIBRATION + " BOOLEAN);");
+				+ " INTEGER PRIMARY KEY, " + PLACE + " TEXT," + PRIORITY
+				+ " INTEGER," + VOLUME	+ " INTEGER," + VIBRATION + " BOOLEAN);");
 		db.execSQL("CREATE TABLE " + CELLS_TABLE + " (" + KEYCELL
 				+ " INTEGER PRIMARY KEY, " + IDPLACE + " INTEGER," + IDCELL + " INTEGER,"
-				+ LOCATION_AREA	+ " INTEGER);");
+				+ LOCATION_AREA	+ " INTEGER, " + TIMESTAMP + " TEXT);");
 	}
 
 	@Override

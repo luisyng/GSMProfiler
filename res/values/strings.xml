@@ -5,11 +5,16 @@
     <string name="app_name">CellLocation</string>
     <string name="new_place">Add new!</string>
     <string name="add_place_name">Add place name</string>
-    <string name="record">Record</string>
-    <string name="how_to_record">Do you want to keep the previous cells?</string>
-    <string name="record_keep">Keep previous cells</string>
-    <string name="record_restart">Restart list of cells</string>
+    <string name="learn">Learn</string>
+    <string name="how_to_learn">Do you want to keep the previous cells?</string>
+    <string name="learn_keep">Keep previous cells</string>
+    <string name="learn_restart">Restart list of cells</string>
+    <string name="cells_deleted">Previous cells deleted</string>
     <string name="cellIDLabel">Cell ID:</string>
     <string name="locationAreaLabel">Location area:</string>
-
+    <string name="timestampLabel">Timestamp:</string>
+    <string name="long_press_title">Manage place</string>
+    <string name="delete_place">Delete place</string>
+    <string name="increase_priority">Increase priority</string>
+    <string name="decrease_priority">Decrease priority</string>
 </resources>

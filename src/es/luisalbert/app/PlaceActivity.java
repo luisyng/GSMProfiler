@@ -2,11 +2,16 @@ package es.luisalbert.app;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.telephony.TelephonyManager;
 import android.telephony.gsm.GsmCellLocation;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,6 +19,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 import es.luisalbert.db.SQLiteInterface;
 import es.luisalbert.entities.CellInfo;
 import es.luisalbert.entities.Place;
@@ -25,6 +31,10 @@ public class PlaceActivity extends Activity {
 
 	private ListView listView;
 	private ArrayAdapter<CellInfo> adapter;
+	private LearningService service;
+
+
+	private final static int RESTART_LIST_CELLS = 1;
 
 	/** Called when the activity is first created. */
 	@Override
@@ -41,8 +51,13 @@ public class PlaceActivity extends Activity {
 			place = SQLiteInterface.getPlace(this, idPlace);
 			SQLiteInterface.addCells(this, place);
 		} else {
-			place = new Place(0, getString(R.string.new_place));
+			place = createAndSavePlace();
 		}
+		
+		// Bind to the service
+		getApplicationContext().bindService(
+				new Intent(this, LearningService.class), serviceConnection,
+				Context.BIND_AUTO_CREATE);
 
 		// Add text
 		nameTextView = (TextView) findViewById(R.id.placeView);
@@ -51,8 +66,8 @@ public class PlaceActivity extends Activity {
 		}
 
 		// Button
-		Button recordButton = (Button) findViewById(R.id.recordButton);
-		recordButton.setOnClickListener(new View.OnClickListener() {
+		Button learnButton = (Button) findViewById(R.id.learnButton);
+		learnButton.setOnClickListener(new View.OnClickListener() {
 			public void onClick(View v) {
 				openRecordDialog();
 			}
@@ -82,12 +97,15 @@ public class PlaceActivity extends Activity {
 						.findViewById(R.id.cellIDText);
 				TextView locationAreaTextView = (TextView) itemView
 						.findViewById(R.id.locationAreaText);
+				TextView timestampTextView = (TextView) itemView
+						.findViewById(R.id.timestampText);
 
 				// Add data
 				CellInfo cell = getItem(position);
 				cellIDTextView.setText(String.valueOf(cell.getId()));
 				locationAreaTextView
 						.setText(String.valueOf(cell.getAreaCode()));
+				timestampTextView.setText(cell.getTimestamp());
 
 				// Return the view
 				return itemView;
@@ -101,59 +119,84 @@ public class PlaceActivity extends Activity {
 	 **/
 	private void openRecordDialog() {
 		new AlertDialog.Builder(this)
-				.setTitle(R.string.how_to_record)
-				.setItems(R.array.how_to_record,
+				.setTitle(R.string.how_to_learn)
+				.setItems(R.array.how_to_learn,
 						new DialogInterface.OnClickListener() {
 							public void onClick(
 									DialogInterface dialoginterface, int i) {
-								startRecord(i);
+								startLearning(i);
 							}
 						}).show();
 	}
 
 	/**
-	 * Start record with the chosen policy
+	 * Start learning with the chosen policy
 	 * 
 	 * @param i
 	 */
-	private void startRecord(int i) {
+	private void startLearning(int i) {
 		// Save first the place (otherwise we won't have id if it's new)
-		savePlace();
+		updatePlace();
+
+		if (i == RESTART_LIST_CELLS) {
+			SQLiteInterface.deleteCells(this, place);
+			place.getCells().clear();
+			Toast.makeText(this, getString(R.string.cells_deleted),
+					Toast.LENGTH_LONG).show();
+		}
+
+		service.getCellLocation();
+
+
 		
-		// Obtain cell location
-		TelephonyManager telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
-		GsmCellLocation cellLocation = (GsmCellLocation) telephonyManager
-				.getCellLocation();
-		
-		// Save cell info
-		CellInfo cell = new CellInfo(cellLocation.getCid(), cellLocation.getLac());
-		SQLiteInterface.saveCell(this, place.getId(), cell);
-		
-		// Update views
-		place.getCells().add(cell);
 		adapter.notifyDataSetChanged();
 	}
 
-	private void savePlace() {
+	private Place createAndSavePlace() {
+		return SQLiteInterface.savePlace(this, new Place(0, getString(R.string.new_place)));
+	}
+
+	private void updatePlace() {
 		// Set name of place
 		String name = nameTextView.getText().toString();
 		if (name.length() == 0) {
 			name = "No name";
 		}
 		place.setPlace(name);
-
-		// Save to db
-		if (isNew) {
-			place = SQLiteInterface.savePlace(this, place);
-			isNew = false;
-		} else {
-			SQLiteInterface.updatePlace(this, place);
-		}
+		SQLiteInterface.updatePlace(this, place);
 	}
 
 	@Override
 	public void onPause() {
 		super.onPause();
-		savePlace();
+		updatePlace();
 	}
+
+	private ServiceConnection serviceConnection = new ServiceConnection() {
+		public void onServiceConnected(ComponentName className, IBinder binder) {
+			Log.i("LOG", "Service connected to CompetitionTabActivity");
+
+			// Set the webService
+			service = ((LearningService.LearningBinder) binder)
+					.getService();
+			service.setPlace(place);
+			
+			
+			// // Set the competition
+			// webService.setCompetition(competition);
+			//
+			// // Download the athletes and circuit
+			// webService.downloadAthletesAndCircuit();
+			//
+			// // Broadcast that the connection is established (Details Activity
+			// // will be able to show the competition details
+			// sendBroadcast(new Intent(WebService.CONNECTION_ESTABLISHED));
+
+		}
+
+		public void onServiceDisconnected(ComponentName className) {
+			Log.i("LOG", "Service disconnected from CompetitionTabActivity");
+			// webService = null;
+		}
+	};
 }

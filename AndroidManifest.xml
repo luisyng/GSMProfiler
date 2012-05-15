@@ -21,6 +21,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".PlaceActivity" />
+        <service android:name="es.luisalbert.app.LearningService" />
     </application>
 
 </manifest>
