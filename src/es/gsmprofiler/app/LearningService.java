@@ -4,33 +4,98 @@ import es.gsmprofiler.db.SQLiteInterface;
 import es.gsmprofiler.entities.CellInfo;
 import es.gsmprofiler.entities.Place;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Binder;
 import android.os.IBinder;
+import android.telephony.CellLocation;
+import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.telephony.gsm.GsmCellLocation;
 import android.util.Log;
 import android.widget.Toast;
 
 /**
- * Service that will learn in the background the cells that 
- * the user can view from his/her defined places
+ * Service that will learn in the background the cells that the user can view
+ * from his/her defined places
  * 
  * @author luis
  */
 public class LearningService extends Service {
 
 	private TelephonyManager telephonyManager;
-	private Place place;
+	private Place learnPlace;
+	private Place detectPlace;
+	private int lastDetectedIdCell;
+	private boolean isLearning;
+	private boolean isDetecting;
+	private PhoneStateListener phoneStateListener;
+
+	// Broadcasting
+	public static final String CELL_LEARNT = "cell_learnt";
+	public static final String DELETE_PLACE = "delete_place";
+	public static final String PLACE_DETECTED = "place_detected";
+	private LearningServiceBroadcastReceiver broadcastReceiver;
 
 	@Override
 	public void onCreate() {
 		Log.i("LocalService", "On create");
-		Toast.makeText(this, "Create", Toast.LENGTH_SHORT).show();
 
 		// Telephony manager
 		telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+
+		// The system is not still learning nor detecting
+		isLearning = false;
+		isDetecting = false;
+
+		// Listener for learning
+		phoneStateListener = new PhoneStateListener() {
+			@Override
+			public void onCellLocationChanged(CellLocation location) {
+				GsmCellLocation gsmLocation = (GsmCellLocation) location;
+				lastDetectedIdCell = gsmLocation.getCid();
+				if(isLearning) {
+					saveCellLocation(gsmLocation);
+					sendBroadcast(new Intent(CELL_LEARNT));
+				} 
+				if(isDetecting) {
+					checkIfNewDetection(lastDetectedIdCell);
+				}
+			}
+		};
+
+		// Set the broadcast receiver
+		this.broadcastReceiver = new LearningServiceBroadcastReceiver();
+		IntentFilter intentFilter = new IntentFilter();
+		intentFilter.addAction(LearningService.DELETE_PLACE);
+		registerReceiver(broadcastReceiver, intentFilter);
+	}
+	
+	/**
+	 * Forces checking. To use it for example when the priorities have changed
+	 * or a place have been deleted
+	 */
+	public void forceCheckDetection() {
+		if(isDetecting) {
+			checkIfNewDetection(lastDetectedIdCell);
+		}
+	}
+	
+	private void checkIfNewDetection(int idCell) {
+		// Get detected place from DB
+		Place lastDetPlace = SQLiteInterface.detectPlace(LearningService.this, idCell);
+		
+		// First component includes if one is null and the other one is not
+		if(detectPlace != lastDetPlace || !detectPlace.equals(lastDetPlace)) {
+			detectPlace = lastDetPlace;
+			if(detectPlace == null) {
+				Toast.makeText(this, "Out of the defined places", Toast.LENGTH_LONG).show();
+			} else {
+				Toast.makeText(this, "You are in: " + detectPlace.getPlace(), Toast.LENGTH_LONG).show();
+			}
+		}	
 	}
 
 	@Override
@@ -43,50 +108,71 @@ public class LearningService extends Service {
 
 	@Override
 	public void onDestroy() {
-		// Tell the user we stopped
-		Toast.makeText(this, "Destroy", Toast.LENGTH_SHORT).show();
+		super.onDestroy();
+		unregisterReceiver(broadcastReceiver);
 	}
 
 	/**
 	 * Set the place we are learning about
+	 * 
 	 * @param place
 	 */
 	public void setPlace(Place place) {
-		this.place = place;
+		this.learnPlace = place;
 	}
 
-	public void getCellLocation() {
-		// Obtain cell location
-		GsmCellLocation cellLocation = (GsmCellLocation) telephonyManager
-				.getCellLocation();
+	public Place getPlace() {
+		return learnPlace;
+	}
 
+	private void saveCellLocation(GsmCellLocation cellLocation) {
 		// Save cell info
 		CellInfo cell = new CellInfo(cellLocation.getCid(),
 				cellLocation.getLac());
-		
+
 		// Save in DB
-		SQLiteInterface.deleteCell(this, place.getId(), cell.getId());
-		SQLiteInterface.saveCell(this, place.getId(), cell);
-		
-		// Update object for views
-		removeCell(cell.getId());
-		place.getCells().add(cell);
+		SQLiteInterface.deleteCell(this, learnPlace.getId(), cell.getId());
+		SQLiteInterface.saveCell(this, learnPlace.getId(), cell);
 	}
 
-	/**
-	 * Remove cell from DB if we find another one with the same ID
-	 * To only the one with the latest timestamp
-	 * @param id id of the cell
-	 */
-	private void removeCell(int id) {
-		CellInfo found = null;
-		for (CellInfo cell : place.getCells()) {
-			if (cell.getId() == id) {
-				found = cell;
-				break;
-			}
+	public boolean isLearning() {
+		return isLearning;
+	}
+	
+	public boolean isDetecting() {
+		return isDetecting;
+	}
+
+	public void startLearning() {
+		isLearning = true;
+		// Register listener
+		telephonyManager.listen(phoneStateListener,
+				PhoneStateListener.LISTEN_CELL_LOCATION);
+	}
+
+	public void stopLearning() {
+		isLearning = false;
+		// Unregister listener
+		if(!isDetecting) {
+			telephonyManager.listen(phoneStateListener,
+					PhoneStateListener.LISTEN_NONE);
 		}
-		place.getCells().remove(found);
+	}
+	
+	public void startDetecting() {
+		isDetecting = true;
+		// Register listener
+		telephonyManager.listen(phoneStateListener,
+				PhoneStateListener.LISTEN_CELL_LOCATION);
+	}
+
+	public void stopDetecting() {
+		isDetecting = false;
+		// Unregister listener
+		if(!isLearning) {
+			telephonyManager.listen(phoneStateListener,
+					PhoneStateListener.LISTEN_NONE);
+		}
 	}
 
 	@Override
@@ -98,12 +184,32 @@ public class LearningService extends Service {
 	private final IBinder mBinder = new LearningBinder();
 
 	/**
-	 * Class for clients to access the service. We will return 
-	 * a reference to the Service itself
+	 * Class for clients to access the service. We will return a reference to
+	 * the Service itself
 	 */
 	public class LearningBinder extends Binder {
 		LearningService getService() {
 			return LearningService.this;
+		}
+	}
+
+	private class LearningServiceBroadcastReceiver extends BroadcastReceiver {
+
+		@Override
+		public void onReceive(Context context, Intent intent) {
+			// Place deleted
+			int idPlace = intent.getIntExtra(Place.IDPLACE, 0);
+
+			// Check if it's our place, even if it's not learning
+			if (learnPlace != null && learnPlace.getId() == idPlace) {
+				stopLearning();
+				learnPlace = null;
+			}
+			// Same for detecting
+			if (detectPlace != null && detectPlace.getId() == idPlace) {
+				detectPlace = null;
+				forceCheckDetection();
+			}
 		}
 	}
 }

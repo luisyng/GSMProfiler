@@ -6,6 +6,8 @@
     <string name="new_place">Add new!</string>
     <string name="add_place_name">Add place name</string>
     <string name="learn">Learn</string>
+    <string name="stop_learning">Stop learning</string>
+    <string name="already_learning">The app is already learning other place. Stop it to start learning this.</string>
     <string name="how_to_learn">Do you want to keep the previous cells?</string>
     <string name="learn_keep">Keep previous cells</string>
     <string name="learn_restart">Restart list of cells</string>
@@ -17,4 +19,6 @@
     <string name="delete_place">Delete place</string>
     <string name="increase_priority">Increase priority</string>
     <string name="decrease_priority">Decrease priority</string>
+    <string name="detect">Detect</string>
+
 </resources>

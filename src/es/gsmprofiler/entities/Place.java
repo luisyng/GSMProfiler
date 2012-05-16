@@ -49,4 +49,8 @@ public class Place {
 	public void setCells(List<CellInfo> cells) {
 		this.cells = cells;
 	}
+	
+	public boolean equals(Place other) {
+		return other != null && other.getId() == this.id;
+	}
 }

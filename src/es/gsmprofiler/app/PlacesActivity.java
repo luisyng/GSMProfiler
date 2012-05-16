@@ -4,13 +4,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 import android.app.Activity;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.IBinder;
+import android.util.Log;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.LayoutInflater;
 import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,15 +24,15 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
-import android.widget.Toast;
 import es.gsmprofiler.db.SQLiteInterface;
 import es.gsmprofiler.entities.Place;
-import es.luisalbert.app.R;
+import es.gsmprofiler.app.R;
 
 public class PlacesActivity extends Activity {
 	private ListView listView;
 	private List<Place> places;
 	private ArrayAdapter<Place> adapter;
+	private LearningService service;
 
 	private static final int DELETE = 0;
 	private static final int INCREASE_PRIORITY = 1;
@@ -41,9 +46,14 @@ public class PlacesActivity extends Activity {
 		// Initialize places
 		places = new ArrayList<Place>();
 
+		// Bind to the service
+		getApplicationContext().bindService(
+				new Intent(this, LearningService.class), serviceConnection,
+				Context.BIND_AUTO_CREATE);
+		
 		// Get the list view
 		listView = (ListView) this.findViewById(R.id.placesListView);
-
+	
 		// Listener for the list items
 		listView.setOnItemClickListener(new OnItemClickListener() {
 			public void onItemClick(AdapterView av, View v, int index, long arg3) {
@@ -120,16 +130,24 @@ public class PlacesActivity extends Activity {
 		
 		// Different actions
 		if (idAction == DELETE) {
+			
+			// Delete place
 			SQLiteInterface.deletePlace(this, place.getId());
 			places.remove(info.position);
-			// TODO notify broadcast
+			
+			// Inform the service in case it was learning
+			Intent intent = new Intent(LearningService.DELETE_PLACE);
+			intent.putExtra(Place.IDPLACE, place.getId());
+			sendBroadcast(intent);
+			
 		} else if (idAction == INCREASE_PRIORITY) {
 			increasePriority(info.position);
-			SQLiteInterface.updatePriorities(this, places);
+			service.forceCheckDetection();
 		} else if (idAction == DECREASE_PRIORITY) {
-			decreasePriority(info.position);
-			SQLiteInterface.updatePriorities(this, places);
+			decreasePriority(info.position);	
+			service.forceCheckDetection();
 		}
+		SQLiteInterface.updatePriorities(this, places);
 		adapter.notifyDataSetChanged();
 		return true;
 	}
@@ -166,4 +184,36 @@ public class PlacesActivity extends Activity {
 		SQLiteInterface.addPlaces(this, places);
 		adapter.notifyDataSetChanged();
 	}
+	
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+	    MenuInflater inflater = getMenuInflater();
+	    inflater.inflate(R.menu.menu, menu);
+	    return true;
+	}
+
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		super.onOptionsItemSelected(item);
+		if(service.isDetecting()) {
+			service.stopDetecting();
+		} else {
+			service.startDetecting();
+		}
+		return true;
+	}
+	
+	private ServiceConnection serviceConnection = new ServiceConnection() {
+		public void onServiceConnected(ComponentName className, IBinder binder) {
+			Log.i("LOG", "Service connected to PlaceActivity");
+
+			// Set the webService
+			service = ((LearningService.LearningBinder) binder)
+					.getService();
+		}
+
+		public void onServiceDisconnected(ComponentName className) {
+			Log.i("LOG", "Service disconnected from PlaceActivity");
+		}
+	};
 }
