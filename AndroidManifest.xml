@@ -20,8 +20,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name="es.gsmprofiler.app.PlaceActivity" />
-        <service android:name="es.gsmprofiler.app.LearningService" />
+        <activity android:name="es.gsmprofiler.app.PlaceActivity" 
+            android:windowSoftInputMode="stateHidden"/>
+        <service android:name=".LocationService" />
     </application>
 
 </manifest>

@@ -20,5 +20,6 @@
     <string name="increase_priority">Increase priority</string>
     <string name="decrease_priority">Decrease priority</string>
     <string name="detect">Detect</string>
+    <string name="stop_detection">Stop detection</string>
 
 </resources>

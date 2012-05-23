@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="detected_place">#6000BB00</color>
+    <color name="menu_background">#BBFFFFFF</color>
+<!--     <color name="text">#BB111111</color> -->
+<!--     <color name="divider">#60111111</color> -->
+
+</resources>

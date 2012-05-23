@@ -40,7 +40,7 @@ public class PlaceActivity extends Activity {
 	private ListView listView;
 	private Button learnButton;
 	private ArrayAdapter<CellInfo> adapter;
-	private LearningService service;
+	private LocationManagerInterface locationInterface;
 	private final static int RESTART_LIST_CELLS = 1;
 
 	private PlaceActivityBroadcastReceiver broadcastReceiver;
@@ -66,7 +66,7 @@ public class PlaceActivity extends Activity {
 		
 		// Bind to the service
 		getApplicationContext().bindService(
-				new Intent(this, LearningService.class), serviceConnection,
+				new Intent(this, LocationService.class), serviceConnection,
 				Context.BIND_AUTO_CREATE);
 
 		// Add text
@@ -85,10 +85,14 @@ public class PlaceActivity extends Activity {
 				imm.hideSoftInputFromWindow(nameTextView.getWindowToken(), 0);
 				
 				// Start or stop learning
-				if(!service.isLearning()) {
-					openLearningDialog();
+				if(!locationInterface.isLearning()) {
+					if(place.getCells().isEmpty()) {
+						startLearning();
+					} else {
+						openLearningDialog();
+					}				
 				} else {
-					service.stopLearning();
+					locationInterface.stopLearning();
 					learnButton.setText(getString(R.string.learn));
 				}
 			}
@@ -137,7 +141,7 @@ public class PlaceActivity extends Activity {
 		// Set the broadcast receiver
 		this.broadcastReceiver = new PlaceActivityBroadcastReceiver();
 		this.intentFilter = new IntentFilter();
-		this.intentFilter.addAction(LearningService.CELL_LEARNT);
+		this.intentFilter.addAction(LocationService.CELL_LEARNT);
 	}
 	
 	@Override
@@ -169,7 +173,7 @@ public class PlaceActivity extends Activity {
 						new DialogInterface.OnClickListener() {
 							public void onClick(
 									DialogInterface dialoginterface, int i) {
-								startLearning(i);
+								deleteCellsAndStartLearning(i);
 							}
 						}).show();
 	}
@@ -178,7 +182,7 @@ public class PlaceActivity extends Activity {
 	 * Start learning with the chosen policy
 	 * @param i
 	 */
-	private void startLearning(int i) {
+	private void deleteCellsAndStartLearning(int i) {
 		// Save first the place (otherwise we won't have id if it's new)
 		updatePlace();
 
@@ -189,7 +193,11 @@ public class PlaceActivity extends Activity {
 			Toast.makeText(this, getString(R.string.cells_deleted),
 					Toast.LENGTH_LONG).show();
 		}
-		service.startLearning();
+		startLearning();
+	}
+	
+	private void startLearning() {
+		locationInterface.startLearning();
 		learnButton.setText(getString(R.string.stop_learning));
 	}
 
@@ -219,21 +227,21 @@ public class PlaceActivity extends Activity {
 			Log.i("LOG", "Service connected to PlaceActivity");
 
 			// Set the webService
-			service = ((LearningService.LearningBinder) binder)
-					.getService();
+			locationInterface = ((LocationService.LocationBinder) binder)
+					.getLocationInterface();
 			
 			// Learning the current place
-			if(service.isLearning() && service.getPlace().equals(place)) {
+			if(locationInterface.isLearning() && locationInterface.getLearnPlace().equals(place)) {
 				learnButton.setText(getString(R.string.stop_learning));
 				learnButton.setEnabled(true);
 			// Learning another place
-			} else if(service.isLearning() && !service.getPlace().equals(place)) {
+			} else if(locationInterface.isLearning() && !locationInterface.getLearnPlace().equals(place)) {
 				Toast.makeText(PlaceActivity.this, getString(R.string.already_learning), Toast.LENGTH_LONG).show();
 				learnButton.setEnabled(false);
 				// Not learning
 			} else {
 				learnButton.setEnabled(true);
-				service.setPlace(place);
+				locationInterface.setLearnPlace(place);
 			}	
 		}
 

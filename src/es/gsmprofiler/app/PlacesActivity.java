@@ -4,9 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -29,11 +31,22 @@ import es.gsmprofiler.entities.Place;
 import es.gsmprofiler.app.R;
 
 public class PlacesActivity extends Activity {
-	private ListView listView;
-	private List<Place> places;
-	private ArrayAdapter<Place> adapter;
-	private LearningService service;
 
+	// Entities
+	private List<Place> places;
+
+	// Views
+	private ListView listView;
+	private ArrayAdapter<Place> adapter;
+
+	// Location manager
+	private LocationManagerInterface locationInterface;
+
+	// Broadcast receiver
+	private PlacesActivityBroadcastReceiver broadcastReceiver;
+	private IntentFilter intentFilter;
+
+	// Menu actions
 	private static final int DELETE = 0;
 	private static final int INCREASE_PRIORITY = 1;
 	private static final int DECREASE_PRIORITY = 2;
@@ -46,21 +59,24 @@ public class PlacesActivity extends Activity {
 		// Initialize places
 		places = new ArrayList<Place>();
 
+		// Location Interface null until connected to service
+		locationInterface = null;
+
 		// Bind to the service
 		getApplicationContext().bindService(
-				new Intent(this, LearningService.class), serviceConnection,
+				new Intent(this, LocationService.class), serviceConnection,
 				Context.BIND_AUTO_CREATE);
-		
+
 		// Get the list view
 		listView = (ListView) this.findViewById(R.id.placesListView);
-	
+
 		// Listener for the list items
 		listView.setOnItemClickListener(new OnItemClickListener() {
 			public void onItemClick(AdapterView av, View v, int index, long arg3) {
 				// Go to PlaceActivity
 				Intent intent = new Intent(PlacesActivity.this,
 						PlaceActivity.class);
-				
+
 				// Pass the idPlace to the PlaceActivity
 				int idPlace = places.get(index).getId();
 				intent.putExtra(Place.IDPLACE, idPlace);
@@ -87,9 +103,24 @@ public class PlacesActivity extends Activity {
 				TextView nameTextView = (TextView) itemView
 						.findViewById(R.id.nameView);
 
-				// Add data
+				// Get place
 				Place place = getItem(position);
-				nameTextView.setText(place.getPlace());
+
+				// Place name
+				if (locationInterface != null && locationInterface.isLearning()
+						&& place.equals(locationInterface.getLearnPlace())) {
+					nameTextView.setText(place.getPlace() + " (L)");
+				} else {
+					nameTextView.setText(place.getPlace());
+				}
+
+				// Change color of detected place
+				if (locationInterface != null
+						&& place.equals(locationInterface.getDetectPlace())) {
+					itemView.setBackgroundResource(R.color.detected_place);
+				} else {
+					itemView.setBackgroundResource(android.R.color.transparent);
+				}
 
 				// Return the view
 				return itemView;
@@ -99,6 +130,11 @@ public class PlacesActivity extends Activity {
 
 		// Long press menu
 		registerForContextMenu(listView);
+
+		// Set the broadcast receiver
+		this.broadcastReceiver = new PlacesActivityBroadcastReceiver();
+		this.intentFilter = new IntentFilter();
+		this.intentFilter.addAction(LocationService.PLACE_DETECTED);
 	}
 
 	/**
@@ -127,25 +163,25 @@ public class PlacesActivity extends Activity {
 		AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item
 				.getMenuInfo();
 		Place place = places.get(info.position);
-		
+
 		// Different actions
 		if (idAction == DELETE) {
-			
+
 			// Delete place
 			SQLiteInterface.deletePlace(this, place.getId());
 			places.remove(info.position);
-			
+
 			// Inform the service in case it was learning
-			Intent intent = new Intent(LearningService.DELETE_PLACE);
+			Intent intent = new Intent(LocationService.DELETE_PLACE);
 			intent.putExtra(Place.IDPLACE, place.getId());
 			sendBroadcast(intent);
-			
+
 		} else if (idAction == INCREASE_PRIORITY) {
 			increasePriority(info.position);
-			service.forceCheckDetection();
+			locationInterface.forceCheckDetection();
 		} else if (idAction == DECREASE_PRIORITY) {
-			decreasePriority(info.position);	
-			service.forceCheckDetection();
+			decreasePriority(info.position);
+			locationInterface.forceCheckDetection();
 		}
 		SQLiteInterface.updatePriorities(this, places);
 		adapter.notifyDataSetChanged();
@@ -154,7 +190,9 @@ public class PlacesActivity extends Activity {
 
 	/**
 	 * Increase the priority of a place
-	 * @param position of the item
+	 * 
+	 * @param position
+	 *            of the item
 	 */
 	private void increasePriority(int position) {
 		if (position == 1) {
@@ -166,7 +204,9 @@ public class PlacesActivity extends Activity {
 
 	/**
 	 * Decrease the priority of a place
-	 * @param position of the item
+	 * 
+	 * @param position
+	 *            of the item
 	 */
 	private void decreasePriority(int position) {
 		if (position == places.size() - 1) {
@@ -183,37 +223,60 @@ public class PlacesActivity extends Activity {
 		// Add places from database
 		SQLiteInterface.addPlaces(this, places);
 		adapter.notifyDataSetChanged();
-	}
-	
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-	    MenuInflater inflater = getMenuInflater();
-	    inflater.inflate(R.menu.menu, menu);
-	    return true;
+
+		// Register receiver
+		registerReceiver(this.broadcastReceiver, this.intentFilter);
 	}
 
 	@Override
-	public boolean onOptionsItemSelected(MenuItem item) {
-		super.onOptionsItemSelected(item);
-		if(service.isDetecting()) {
-			service.stopDetecting();
+	public void onPause() {
+		super.onPause();
+
+		// Unregister receiver
+		unregisterReceiver(this.broadcastReceiver);
+	}
+
+	@Override
+	public boolean onPrepareOptionsMenu(Menu menu) {
+		menu.clear();
+		MenuInflater inflater = getMenuInflater();
+		if(!locationInterface.isDetecting()) {
+			inflater.inflate(R.menu.detect, menu);		
 		} else {
-			service.startDetecting();
+			inflater.inflate(R.menu.stop_detection, menu);
 		}
 		return true;
 	}
-	
+	      
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		super.onOptionsItemSelected(item);
+		if (locationInterface.isDetecting()) {
+			locationInterface.stopDetecting();
+		} else {
+			locationInterface.startDetecting();
+		}
+		return true;
+	}
+
 	private ServiceConnection serviceConnection = new ServiceConnection() {
 		public void onServiceConnected(ComponentName className, IBinder binder) {
 			Log.i("LOG", "Service connected to PlaceActivity");
 
 			// Set the webService
-			service = ((LearningService.LearningBinder) binder)
-					.getService();
+			locationInterface = ((LocationService.LocationBinder) binder)
+					.getLocationInterface();
 		}
 
 		public void onServiceDisconnected(ComponentName className) {
 			Log.i("LOG", "Service disconnected from PlaceActivity");
 		}
 	};
+
+	private class PlacesActivityBroadcastReceiver extends BroadcastReceiver {
+		@Override
+		public void onReceive(Context context, Intent intent) {
+			adapter.notifyDataSetChanged();
+		}
+	}
 }
